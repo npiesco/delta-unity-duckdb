@@ -1,6 +1,6 @@
 {
   "name": "delta-unity-duckdb",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Read Databricks Delta tables from Azure storage through Unity Catalog using DuckDB",
   "main": "delta-unity-duckdb.js",
   "bin": {
