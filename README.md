@@ -123,17 +123,21 @@ delta-unity-duckdb --table="catalog.schema.table_name" --schema
 After installing globally, you can use the `delta-unity-duckdb` command directly:
 
 ```bash
-# Basic usage with .env file configuration
+# Basic usage with .env file configuration (uses TABLE variable from .env)
 delta-unity-duckdb --table="$TABLE" --limit=10
 
-# Using CLI arguments for Databricks credentials
+# Using explicit table name with CLI arguments for Databricks credentials
 delta-unity-duckdb --table="catalog.schema.table_name" --databricks_host="https://your-workspace.cloud.databricks.com" --databricks_token="your-token" --limit=5
 
-# Custom SQL query (use $TABLE as a placeholder for the Delta table)
-delta-unity-duckdb --table="$TABLE" --query="SELECT column1, COUNT(*) as count FROM $TABLE GROUP BY column1 ORDER BY count DESC LIMIT 5"
+# Custom SQL query with explicit table name (IMPORTANT: use actual table name in --table parameter)
+delta-unity-duckdb --table="catalog.schema.table_name" --query="SELECT column1, COUNT(*) as count FROM \$TABLE GROUP BY column1 ORDER BY count DESC LIMIT 5"
 
 # Display results as a table instead of JSON
-delta-unity-duckdb --table="$TABLE" --format=table
+delta-unity-duckdb --table="catalog.schema.table_name" --format=table
+
+# IMPORTANT: Table Parameter vs $TABLE Placeholder
+# --table="actual.table.name"  <- Specifies which table to query
+# \$TABLE in --query           <- Placeholder that gets replaced with delta_scan() function
 ```
 
 ### How it works
