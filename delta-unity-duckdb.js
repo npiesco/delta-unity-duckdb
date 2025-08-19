@@ -541,8 +541,15 @@ async function handleCli() {
   // Parse command line arguments
   args.forEach(arg => {
     if (arg.startsWith('--')) {
-      const [key, value] = arg.substring(2).split('=');
-      options[key] = value || true;
+      const equalIndex = arg.indexOf('=');
+      if (equalIndex !== -1) {
+        const key = arg.substring(2, equalIndex);
+        const value = arg.substring(equalIndex + 1);
+        options[key] = value;
+      } else {
+        const key = arg.substring(2);
+        options[key] = true;
+      }
     }
   });
   
