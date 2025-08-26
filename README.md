@@ -189,6 +189,157 @@ async function queryDeltaTable() {
 queryDeltaTable();
 ```
 
+## Next.js / Webpack Integration
+
+### Webpack Bundling Issues
+
+When using `delta-unity-duckdb` in Next.js applications, you must exclude it from client-side bundling since it contains Node.js-specific dependencies that cannot run in browsers.
+
+**Add to your `next.config.js`:**
+
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Exclude server-only packages from client bundles
+  serverExternalPackages: [
+    'duckdb', 
+    '@duckdb/node-api', 
+    '@mapbox/node-pre-gyp', 
+    'node-gyp', 
+    'delta-unity-duckdb'
+  ],
+  
+  // Mark API routes as server-only
+  experimental: {
+    serverComponentsExternalPackages: ['delta-unity-duckdb']
+  }
+}
+
+module.exports = nextConfig
+```
+
+**In your API routes, add the server runtime directive:**
+
+```javascript
+// Mark this as server-only to prevent client bundling
+export const runtime = 'nodejs';
+
+import { DeltaScanner } from 'delta-unity-duckdb'; // This will work in API routes
+```
+
+### Singleton Pattern for Concurrency
+
+When using multiple DeltaScanner instances simultaneously (e.g., in a web server with concurrent requests), you may encounter DuckDB extension initialization conflicts. Use a singleton pattern to prevent these issues:
+
+```javascript
+// lib/shared-scanner.js
+const { DeltaScanner } = require('delta-unity-duckdb');
+
+class DeltaScannerSingleton {
+  constructor() {
+    if (DeltaScannerSingleton.instance) {
+      return DeltaScannerSingleton.instance;
+    }
+    
+    this.scanner = null;
+    this.isInitialized = false;
+    this.initPromise = null;
+    
+    DeltaScannerSingleton.instance = this;
+  }
+
+  static getInstance() {
+    if (!DeltaScannerSingleton.instance) {
+      DeltaScannerSingleton.instance = new DeltaScannerSingleton();
+    }
+    return DeltaScannerSingleton.instance;
+  }
+
+  async initialize() {
+    if (this.isInitialized) return;
+    
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    
+    this.initPromise = this._initialize();
+    return this.initPromise;
+  }
+
+  async _initialize() {
+    try {
+      this.scanner = new DeltaScanner();
+      await this.scanner.initialize();
+      this.isInitialized = true;
+      console.log('[DELTA SINGLETON] Initialized successfully');
+    } catch (error) {
+      console.error('[DELTA SINGLETON] Initialization failed:', error);
+      this.initPromise = null;
+      throw error;
+    }
+  }
+
+  async query(tableName, query) {
+    await this.initialize();
+    return this.scanner.query(tableName, query);
+  }
+
+  async close() {
+    if (this.scanner) {
+      await this.scanner.close();
+      this.scanner = null;
+      this.isInitialized = false;
+      this.initPromise = null;
+    }
+  }
+}
+
+// Export singleton instance
+const sharedScanner = DeltaScannerSingleton.getInstance();
+
+// Cleanup on process exit
+process.on('exit', async () => {
+  await sharedScanner.close();
+});
+
+process.on('SIGINT', async () => {
+  await sharedScanner.close();
+  process.exit(0);
+});
+
+module.exports = { sharedScanner };
+```
+
+**Usage in API routes:**
+
+```javascript
+// app/api/your-endpoint/route.js
+export const runtime = 'nodejs';
+
+import { sharedScanner } from '../../../lib/shared-scanner';
+
+export async function GET() {
+  try {
+    const data = await sharedScanner.query(
+      'catalog.schema.table_name',
+      'SELECT * FROM $TABLE LIMIT 10'
+    );
+    
+    return Response.json({ success: true, data });
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+  // Note: Don't call scanner.close() - let singleton manage lifecycle
+}
+```
+
+### Key Benefits of Singleton Pattern
+
+- **Prevents DuckDB Extension Conflicts**: Only one scanner initializes extensions
+- **Improves Performance**: Reuses connection across requests
+- **Handles Concurrency**: Multiple simultaneous requests won't conflict
+- **Automatic Cleanup**: Properly closes connections on process exit
+
 
 
 ## API Reference
