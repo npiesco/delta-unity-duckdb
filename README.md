@@ -229,7 +229,7 @@ import { DeltaScanner } from 'delta-unity-duckdb'; // This will work in API rout
 
 ### Singleton Pattern for Concurrency
 
-When using multiple DeltaScanner instances simultaneously (e.g., in a web server with concurrent requests), you may encounter DuckDB extension initialization conflicts. Use a singleton pattern to prevent these issues:
+When using multiple DeltaScanner instances simultaneously (e.g., in a web server with concurrent requests), you may encounter DuckDB extension initialization conflicts and query deadlocks. Use a singleton pattern with query queuing to prevent these issues:
 
 ```javascript
 // lib/shared-scanner.js
@@ -244,6 +244,8 @@ class DeltaScannerSingleton {
     this.scanner = null;
     this.isInitialized = false;
     this.initPromise = null;
+    this.queryQueue = [];
+    this.isProcessingQueue = false;
     
     DeltaScannerSingleton.instance = this;
   }
@@ -281,7 +283,44 @@ class DeltaScannerSingleton {
 
   async query(tableName, query) {
     await this.initialize();
-    return this.scanner.query(tableName, query);
+    
+    if (!this.scanner) {
+      throw new Error('DeltaScanner not initialized');
+    }
+
+    // Queue the query to prevent concurrent access issues
+    return new Promise((resolve, reject) => {
+      this.queryQueue.push(async () => {
+        try {
+          const result = await this.scanner.query(tableName, query);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      // Use setImmediate to avoid blocking the event loop
+      setImmediate(() => this.processQueue());
+    });
+  }
+
+  async processQueue() {
+    if (this.isProcessingQueue || this.queryQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    
+    try {
+      while (this.queryQueue.length > 0) {
+        const queryFn = this.queryQueue.shift();
+        if (queryFn) {
+          await queryFn();
+        }
+      }
+    } finally {
+      this.isProcessingQueue = false;
+    }
   }
 
   async close() {
@@ -333,12 +372,19 @@ export async function GET() {
 }
 ```
 
-### Key Benefits of Singleton Pattern
+### Key Benefits of Singleton Pattern with Query Queue
 
 - **Prevents DuckDB Extension Conflicts**: Only one scanner initializes extensions
 - **Improves Performance**: Reuses connection across requests
-- **Handles Concurrency**: Multiple simultaneous requests won't conflict
+- **Handles Concurrency**: Query queue prevents DuckDB connection deadlocks
+- **Sequential Processing**: Queries execute one at a time to avoid conflicts
 - **Automatic Cleanup**: Properly closes connections on process exit
+
+### Important Notes
+
+- **Query Queuing**: The singleton processes queries sequentially to prevent DuckDB concurrency issues
+- **Multiple Queries**: Combine multiple COUNT/aggregate queries into single SQL statements using CASE expressions for better performance
+- **Event Loop**: Uses `setImmediate()` to avoid blocking the Node.js event loop during queue processing
 
 
 
