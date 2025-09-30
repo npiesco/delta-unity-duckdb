@@ -1,0 +1,37 @@
+{
+  "name": "delta-unity-duckdb",
+  "version": "1.0.7",
+  "description": "Read Databricks Delta tables from Azure storage through Unity Catalog using DuckDB",
+  "main": "delta-unity-duckdb.js",
+  "bin": {
+    "delta-unity-duckdb": "./delta-unity-duckdb.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "delta",
+    "delta-lake",
+    "duckdb",
+    "databricks",
+    "unity-catalog"
+  ],
+  "author": "Nicholas Piesco",
+  "license": "MIT",
+  "dependencies": {
+    "@duckdb/node-api": "^1.3.2-alpha.25",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/npiesco/delta-unity-duckdb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/npiesco/delta-unity-duckdb/issues"
+  },
+  "homepage": "https://github.com/npiesco/delta-unity-duckdb#readme"
+}

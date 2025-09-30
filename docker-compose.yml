@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # Memgraph MAGE - includes MAGE procedures
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    container_name: memgraph-db
+    ports:
+      - "7687:7687"  # Bolt protocol
+      - "7444:7444"  # HTTP API
+    volumes:
+      - mg_data:/var/lib/memgraph
+      - mg_logs:/var/log/memgraph
+    environment:
+      - MEMGRAPH_USER=memgraph
+      - MEMGRAPH_PASSWORD=memgraph
+    restart: unless-stopped
+
+volumes:
+  mg_data:
+    driver: local
+  mg_logs:
+    driver: local

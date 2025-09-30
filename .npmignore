@@ -1,0 +1,28 @@
+# Ignore .env files
+.env
+.env.*
+!.env.example
+
+# Development files
+node_modules/
+.git/
+.gitignore
+
+# Testing
+test/
+tests/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
